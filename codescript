@@ -1,0 +1,126 @@
+#不连续变量占比统计 x为数据框参数 n为栏目号 t为识别字符 m为保留小数 输出结果为统计占比
+st=function(x,n,t,m=4){
+num=length(na.omit(x[x[,n]==t,n]))
+p=round(num/nrow(x),m)
+print(paste(num,p))}
+#连续变量描述统计 x为数据框参数  n为栏目号 m为保留小数 输出结果为统计占比
+sts=function(x,n,m=4){
+mmean=round(summary(na.omit(as.numeric(x[,n])))[4],m)
+msd=round(sd(na.omit(as.numeric(x[,n]))),m)
+median=round(summary(na.omit(as.numeric(x[,n])))[3],m)
+mes=c(colnames(x)[n],mmean,median,msd)
+mes}
+#上述函数使用循环快速计算数据框for (i in 1:ncol(x)){sts(x,i)}
+
+#不连续变量Fisher切角检测  x为数据框参数  m和n为两因素col坐标 输出
+ys=function(x,m,n){
+tb=table(x[,c(m,n)])        #四方角统计 注意table容易出现错误，新手先测试table函数
+pv=fisher.test(tb)[1]       #获取比较P值 可替换chisq.test
+or=as.numeric(fisher.test(tb)[3])     #获取OR值
+re=cbind(tb,c(pv,or))
+re=cbind(colnames(x)[c(m,n)],re) #注意命名错误检测
+re}
+
+#不连续变量Fisher切角检测 固定单一col坐标整体表连续输出
+yss=function(x,n){
+tabx=ys(x,1,n) #1为关键坐标
+for(i in 2:ncol(x)){
+tab=ys(x,i,n)
+tabx=rbind(tabx,tab)}
+tabx}
+#不连续变量四角占比统计及卡方检测 x为数据框参数  m和n为两因素col坐标
+ysch=function(x,m,n){
+tb=table(x[,c(m,n)])
+chi=as.numeric(chisq.test(tb)[1])
+chip=as.numeric(chisq.test(tb)[3])
+or=as.numeric(fisher.test(tb)[3])
+re=cbind(tb,chi)
+re=cbind(re,chip)
+re=cbind(re,or)
+re=cbind(colnames(x)[m,n],re)
+re=cbind(re,c(tb[,1]/(tb[,1]+tb[,2]),tb[,2]/(tb[,2]+tb[,2])))
+re=cbind(re,c(tb[1,]/(tb[1,]+tb[2,]),tb[2,]/(tb[2,]+tb[2,])))
+re=cbind(re,c(1-(tb[,1]/(tb[,1]+tb[,2]),1-(tb[,2]/(tb[,2]+tb[,2]))))
+re=cbind(re,)
+re=cbind(re,c(1-(tb[1,]/(tb[1,]+tb[2,]),1-(tb[2,]/(tb[2,]+tb[2,]))))
+re}
+#不连续变量卡方检测 固定单一col坐标整体表连续输出
+yssch=function(x,n){
+tabx=ysch(x,1,n)
+for(i in 2:ncol(x)){
+tab=ysch(x,i,n)
+tabx=rbind(tabx,tab)}
+tabx}
+
+#连续变量双因素统计及检验分析  x为数据框参数  m和n为两因素col坐标 输出
+qus=function(x,n,m){
+for(i in 1:ncol(x)){
+x[,i]=as.numeric(x[,i])}
+nl=levels(factor(x[,m]))
+ms1=mean(na.omit(x[x[,m]==nl[1],n]))
+sds1=sd(na.omit(x[x[,m]==nl[1],n]))
+n1=length(na.omit(x[x[,m]==nl[1],n]))
+ms2=mean(na.omit(x[x[,m]==nl[2],n]))
+sds2=sd(na.omit(x[x[,m]==nl[2],n]))
+n2=length(na.omit(x[x[,m]==nl[2],n]))
+ms=c(ms1,sds1,n1,ms2,sds2,n2)
+mat=matrix(ms,3,2)
+colnames(mat)=c(paste(colnames(x)[m],nl[1]),paste(colnames(x)[m],nl[2]))
+mat=as.data.frame(mat)
+mat[4,1]=wilcox.test(x[x[,m]==nl[1],n],x[x[,m]==nl[2],n])[3]  #wilcox.test可根据数据替换为t.test 
+mat[4,2]=t.test(x[x[,m]==nl[1],n],x[x[,m]==nl[2],n])[3]
+mat$a=c(mat[1,1]+mat[2,1],mat[1,1]-mat[2,1],mat[1,2]+mat[2,2],mat[1,2]-mat[2,2])
+mat}
+
+#批量连续变量双因素统计及检验分析
+mqus=function(x,m){
+for(i in 1:ncol(x)){
+x[,i]=as.numeric(x[,i])}
+n=ncol(x)
+da=qus(x,1,m)
+for(i in 2:n-1){
+da=rbind(da,qus(x,i,m))}
+names=rep(colnames(x),1,each=4)
+da=cbind(names,da)
+da}
+
+#二分类变量对应的连续变量双因素统计及检验分析
+tabs=function(f,n,m){
+table1=summary(na.omit(f[f[,n]==1,m]))
+table2=summary(na.omit(f[f[,n]==0,m]))
+tab=data.frame(table1=as.vector(table1),table2=as.vector(table2))
+rownames(tab)=names(table1)
+colnames(tab)=c(paste(colnames(f)[n],1),paste(colnames(f)[n],0))
+sd1=sd(na.omit(f[f[,n]==1,m]))
+sd0=sd(na.omit(f[f[,n]==0,m]))
+tab=rbind(tab,c(length(na.omit(f[f[,n]==1,m])),length(na.omit(f[f[,n]==0,m]))))
+tab=rbind(tab,c(sd1,sd0))
+rownames(tab)[7:8]=c("sd","numers")
+tab$p=qus(f,m,n)[4,1]
+tab$names=colnames(f)[m]
+tab}
+
+#逻辑回归模型
+mod=glm(f$res~f$疫苗接种针数+f$新冠结果+f$性别+f$年龄+f$是否吸烟+f$是否肿瘤+f$是否高血压+f$是否糖尿病+f$是否心脑血管疾病.冠心病.卒中等.+f$入组中心+f$入院D.二聚体+f$是否呼吸衰竭+ f$是否肾功能衰竭+f$是否发生脓毒血症.感染性休克等. +f$出院mRS评分+f$是否死亡+f$ICU住院时间.天.,data=f)
+
+#相关性分析
+cr=function(x,n,d=5){
+R=c();P=c()
+for( i in 1:nrow(x)){
+cors=c()
+cors=cor.test(as.numeric(x[n,]),as.numeric(x[i,]),method="spearman") #可以替换方法
+R=c(R,cors$estimate)
+P=c(P,cors$p.value)
+}
+data=data.frame(Names=rownames(x),R=round(R,d),P=round(P,d))
+data=na.omit(data)
+data=data[order(data$P),]
+data=data[order(data$R,decreasing = T),]
+data}
+
+#自制森林图
+pp=ggplot()+geom_point(aes(x=pl$X,y=pl$Estimate,col=pl$Pr...t..),shape=pl$type,size=5)+theme_bw()+theme(legend.title = element_text(size = 12,face="bold"),panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.text.x = element_text(angle=45,hjust=1),axis.text = element_text(size=12,color="black",face="bold"),axis.title = element_text(size=12,color="black",face="bold"))+geom_hline(yintercept = 0,linetype="dashed",color="red")+scale_color_gradient(low="red4",high="green4",name="Pvalues")+scale_x_discrete(labels=pl$X)+xlab("Factors")+ylab("Model coefficients")
+
+
+
+
